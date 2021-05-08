@@ -37,6 +37,3 @@ PUT_NOT_SUPPORTED = {
     "status": 405,
     "errors": "Request method 'PUT' not supported"
 }
-
-
-

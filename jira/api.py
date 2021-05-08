@@ -28,17 +28,20 @@ JIRA_ENDPOINT = "codemaster.obss.io/jira/"
 
 class EchoResource(Resource):
 
-    def get(self, text):
+    @staticmethod
+    def get(text):
         response = make_response(text, 200)
         response.mimetype = "text/plain"
         return response
 
-    def put(self, text):
+    @staticmethod
+    def put(text):
         return PUT_NOT_SUPPORTED, 405
 
 
 class IssueTypesResource(Resource):
-    def get(self):
+    @staticmethod
+    def get():
         args = issue_type_parser.parse_args()
 
         if args["jiraUrl"] is None or args["jiraUrl"] == "":
@@ -58,13 +61,15 @@ class IssueTypesResource(Resource):
 
         return parsed_issues
 
-    def put(self):
+    @staticmethod
+    def put():
         return PUT_NOT_SUPPORTED, 405
 
 
 class SubtaskTypeResource(Resource):
 
-    def get(self):
+    @staticmethod
+    def get():
         args = subtask_type_parser.parse_args()
 
         if args["jiraUrl"] is None or args["jiraUrl"] == "":
@@ -87,16 +92,19 @@ class SubtaskTypeResource(Resource):
 
         return {"issues": to_return}
 
-    def put(self):
+    @staticmethod
+    def put():
         return PUT_NOT_SUPPORTED, 405
 
 
 class FindTopNUsersResource(Resource):
 
-    def get(self):
+    @staticmethod
+    def get():
         return GET_NOT_SUPPORTED, 405
 
-    def post(self):
+    @staticmethod
+    def post():
 
         if request.data:
             project_ids = request.get_json()
@@ -129,11 +137,12 @@ class FindTopNUsersResource(Resource):
                     if key in names.keys():
                         names[key]["issueCount"] += 1
                     else:
+                        assignee = iss["fields"]["assignee"]
                         names[key] = {
-                            "name": iss["fields"]["assignee"]["name"] if iss["fields"]["assignee"] else None,
-                            "key": iss["fields"]["assignee"]["key"] if iss["fields"]["assignee"] else None,
-                            "emailAddress": iss["fields"]["assignee"]["emailAddress"] if iss["fields"]["assignee"] else None,
-                            "displayName": iss["fields"]["assignee"]["displayName"] if iss["fields"]["assignee"] else None,
+                            "name": assignee["name"] if assignee else None,
+                            "key": assignee["key"] if assignee else None,
+                            "emailAddress": assignee["emailAddress"] if assignee else None,
+                            "displayName": assignee["displayName"] if assignee else None,
                             "issueCount": 1
                         }
 
@@ -142,16 +151,19 @@ class FindTopNUsersResource(Resource):
 
         return topn
 
-    def put(self):
+    @staticmethod
+    def put():
         return PUT_NOT_SUPPORTED, 405
 
 
 class TopMProjectsMinNIssues(Resource):
 
-    def get(self):
+    @staticmethod
+    def get():
         return GET_NOT_SUPPORTED, 405
 
-    def post(self):
+    @staticmethod
+    def post():
         if request.data:
             users = request.get_json()
         else:
@@ -168,6 +180,14 @@ class TopMProjectsMinNIssues(Resource):
         if len(users) == 0:
             return USER_NOT_FOUND, 500
 
+        minn = args["minn"]
+        if args["minn"] is None:
+            minn = 5
+
+        topm = args["topm"]
+        if args["topm"] is None:
+            topm = 10
+
         appendix = "rest/api/2/search?jql=assignee={assignee}&maxResults=9999999"
 
         projects = {}
@@ -182,14 +202,6 @@ class TopMProjectsMinNIssues(Resource):
                 issues = res.json()["issues"]
             except requests.exceptions.MissingSchema:
                 return JIRA_NOT_AVAILABLE, 500
-
-            minn = args["minn"]
-            if args["minn"] is None:
-                minn = 5
-
-            topm = args["topm"]
-            if args["topm"] is None:
-                topm = 10
 
             for iss in issues:
                 if iss["fields"]["project"]:
@@ -216,7 +228,8 @@ class TopMProjectsMinNIssues(Resource):
 
         return to_ret
     
-    def put(self):
+    @staticmethod
+    def put():
         return PUT_NOT_SUPPORTED, 405
 
 
