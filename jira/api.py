@@ -16,7 +16,6 @@ subtask_type_parser.add_argument("projectId", type=str)
 find_top_n_parser = reqparse.RequestParser()
 find_top_n_parser.add_argument("jiraUrl", type=str, location='args')
 find_top_n_parser.add_argument("topn", type=int, location='args')
-#find_top_n_parser.add_argument('project_ids', type=list, location='form')
 
 project_parser = reqparse.RequestParser()
 project_parser.add_argument("jiraUrl", type=str, location='args')
@@ -86,8 +85,6 @@ class SubtaskTypeResource(Resource):
             res = res.json()
 
         issues = res["issues"]
-        if issues is None:
-            return JIRA_URL_MISSING
 
         to_return = list()
         for issue in issues:
@@ -108,12 +105,12 @@ class SubtaskTypeResource(Resource):
                             "key": issue["fields"]["reporter"]["key"],
                             "emailAddress": issue["fields"]["reporter"]["emailAddress"],
                             "displayName": issue["fields"]["reporter"]["displayName"]
-                        },
+                        }if issue["fields"]["reporter"] else None,
                         "project": {
                             "id": issue["fields"]["project"]["id"],
                             "key": issue["fields"]["project"]["key"],
                             "name": issue["fields"]["project"]["name"],
-                        }
+                        }if issue["fields"]["project"] else None
                     }
                 }
                 to_return.append(new_iss)
@@ -127,10 +124,14 @@ class SubtaskTypeResource(Resource):
 
 class FindTopNUsersResource(Resource):
 
+    def get(self):
+        return GET_NOT_SUPPORTED
+
     def post(self):
 
         project_ids = request.json
         args = find_top_n_parser.parse_args()
+
         if args["jiraUrl"] is None:
             return JIRA_URL_MISSING
 
@@ -150,12 +151,12 @@ class FindTopNUsersResource(Resource):
 
             for iss in issues:
                 if iss["fields"]["assignee"]:
-                    name = iss["fields"]["assignee"]["name"]  # extract name form issue
+                    key = iss["fields"]["assignee"]["key"]  # extract name form issue
                     # find name and inc value
-                    if name in names.keys():
-                        names[name]["issueCount"] += 1
+                    if key in names.keys():
+                        names[key]["issueCount"] += 1
                     else:
-                        names[name] = {
+                        names[key] = {
                             "name": iss["fields"]["assignee"]["name"] if iss["fields"]["assignee"] else None,
                             "key": iss["fields"]["assignee"]["key"] if iss["fields"]["assignee"] else None,
                             "emailAddress": iss["fields"]["assignee"]["emailAddress"] if iss["fields"]["assignee"] else None,
@@ -168,11 +169,14 @@ class FindTopNUsersResource(Resource):
 
         return topn
 
-    def put(self, text):
+    def put(self):
         return PUT_NOT_SUPPORTED
 
 
 class TopMProjectsMinNIssues(Resource):
+
+    def get(self):
+        return GET_NOT_SUPPORTED
 
     def post(self):
         users = request.json
@@ -190,6 +194,10 @@ class TopMProjectsMinNIssues(Resource):
                 return JIRA_NOT_AVAILABLE
             else:
                 issues = res.json()["issues"]
+
+            # add an exception
+            if issues is None:
+                return {}, 500
 
             for iss in issues:
                 if iss["fields"]["project"]:
@@ -216,7 +224,7 @@ class TopMProjectsMinNIssues(Resource):
 
         return to_ret
     
-    def put(self, text):
+    def put(self):
         return PUT_NOT_SUPPORTED
 
 

@@ -22,3 +22,16 @@ PUT_NOT_SUPPORTED = {
     "errors": "Request method 'PUT' not supported"
 }
 
+USER_NOT_FOUND = {
+    "timestamp": "2020-02-11",
+    "status": 500,
+    "errors": "users not found"
+}
+
+USER_INFO_REQUIRED = {
+    "timestamp": "2020-02-11",
+    "status": 400,
+    "errors": "Required request body is missing:"
+}
+
+
