@@ -1,5 +1,5 @@
 from flask_restful import Api, Resource, reqparse
-from flask import Blueprint, abort
+from flask import Blueprint, abort, make_response
 import requests
 from jira.exceptions import *
 
@@ -17,7 +17,9 @@ JIRA_ENDPOINT = "codemaster.obss.io/jira/"
 
 class EchoResource(Resource):
     def get(self, text):
-        return text
+        response = make_response(text, 200)
+        response.mimetype = "text/plain"
+        return response
 
     def put(self, text):
         return PUT_NOT_SUPPORTED
