@@ -1,9 +1,9 @@
 # CodeMaster 2021 - Solution
 
-```
-Go 7a324699 to see the submitted version. Current version includes
-fixes I pushed after the competition.
-````
+
+Go [7a324699](https://github.com/emekgozluklu/CodeMaster2021/tree/7a324699ac06a1e5dc116d371460de2e49d4b09c) to see the submitted version. Current version includes
+fixes I implemented after the competition.
+
 
 CodeMaster is a programming contest organized by OBSS.
 In the first round, an algorithmic programming question is
@@ -15,7 +15,9 @@ In this round, we are asked to develop and API over Jira API.
 We retrieve the information from Jira and convert it into desired
 format. We had 4 hours to answer the question. 
 
-Tests: `146 passed cases, 28 failed cases`
+Tests: 
+- Submitted: `146 passed cases, 28 failed cases`
+- Current: `168 passed cases, 6 failed cases`
 
 To run the code:
 - `python3 -m venv venv`
