@@ -1,7 +1,8 @@
 from flask_restful import Api, Resource, reqparse
-from flask import Blueprint, abort, make_response, request
-import requests
+from flask import Blueprint, make_response, request
+from jira.utils import *
 from jira.exceptions import *
+import requests
 
 bp = Blueprint("api", __name__, url_prefix="/api/v1")
 api = Api(bp)
@@ -26,44 +27,39 @@ JIRA_ENDPOINT = "codemaster.obss.io/jira/"
 
 
 class EchoResource(Resource):
+
     def get(self, text):
         response = make_response(text, 200)
         response.mimetype = "text/plain"
         return response
 
     def put(self, text):
-        return PUT_NOT_SUPPORTED
+        return PUT_NOT_SUPPORTED, 405
 
 
 class IssueTypesResource(Resource):
-
     def get(self):
-
         args = issue_type_parser.parse_args()
-        if args["jiraUrl"] is None:
-            return JIRA_URL_MISSING
+
+        if args["jiraUrl"] is None or args["jiraUrl"] == "":
+            return JIRA_URL_MISSING, 400
 
         query = args["jiraUrl"] + "rest/api/2/issuetype"
         res = requests.get(query)
 
         if res.status_code != 200:
-            return JIRA_NOT_AVAILABLE
-        else:
-            res = res.json()
+            return JIRA_NOT_AVAILABLE, 500
 
-        to_return = list()
-        for i in res:
-            to_return.append({
-                "id": i["id"],
-                "description": i["description"],
-                "name": i["name"],
-                "subtask": i["subtask"]
-            })
+        data = res.json()
+        parsed_issues = list()
 
-        return to_return
+        for issue in data:
+            parsed_issues.append(parse_issue_task2(issue))
+
+        return parsed_issues
 
     def put(self):
-        return PUT_NOT_SUPPORTED
+        return PUT_NOT_SUPPORTED, 405
 
 
 class SubtaskTypeResource(Resource):
@@ -71,69 +67,46 @@ class SubtaskTypeResource(Resource):
     def get(self):
         args = subtask_type_parser.parse_args()
 
-        if args["jiraUrl"] is None:
-            return JIRA_URL_MISSING
+        if args["jiraUrl"] is None or args["jiraUrl"] == "":
+            return JIRA_URL_MISSING, 400
 
-        query = args["jiraUrl"] + "rest/api/2/search?jql=project={p_id}" + "&maxResults=9999999"
-        p_id = args["projectId"]
-
-        res = requests.get(query.format(p_id=p_id))
+        query = args["jiraUrl"] + "rest/api/2/search?jql=project={p_id}&maxResults=9999999"
+        project_id = args["projectId"]
+        res = requests.get(query.format(p_id=project_id))
 
         if res.status_code != 200:
-            return JIRA_NOT_AVAILABLE
-        else:
-            res = res.json()
+            return JIRA_NOT_AVAILABLE, 500
 
-        issues = res["issues"]
+        data = res.json()
+        issues = data["issues"]
 
         to_return = list()
         for issue in issues:
-
             if issue["fields"]["issuetype"]["subtask"]:
-                new_iss = {
-                    "id": issue["id"],
-                    "key": issue["key"],
-                    "fields": {
-                        "assignee": {
-                            "name": issue["fields"]["assignee"]["name"] if issue["fields"]["assignee"] else None,
-                            "key": issue["fields"]["assignee"]["key"] if issue["fields"]["assignee"] else None,
-                            "emailAddress": issue["fields"]["assignee"]["emailAddress"] if issue["fields"]["assignee"] else None,
-                            "displayName": issue["fields"]["assignee"]["displayName"] if issue["fields"]["assignee"] else None
-                        } if issue["fields"]["assignee"] else None,
-                        "reporter": {
-                            "name": issue["fields"]["reporter"]["name"],
-                            "key": issue["fields"]["reporter"]["key"],
-                            "emailAddress": issue["fields"]["reporter"]["emailAddress"],
-                            "displayName": issue["fields"]["reporter"]["displayName"]
-                        }if issue["fields"]["reporter"] else None,
-                        "project": {
-                            "id": issue["fields"]["project"]["id"],
-                            "key": issue["fields"]["project"]["key"],
-                            "name": issue["fields"]["project"]["name"],
-                        }if issue["fields"]["project"] else None
-                    }
-                }
-                to_return.append(new_iss)
+                to_return.append(task3_issue_helper(issue))
 
         return {"issues": to_return}
 
-
     def put(self):
-        return PUT_NOT_SUPPORTED
+        return PUT_NOT_SUPPORTED, 405
 
 
 class FindTopNUsersResource(Resource):
 
     def get(self):
-        return GET_NOT_SUPPORTED
+        return GET_NOT_SUPPORTED, 405
 
     def post(self):
 
-        project_ids = request.json
+        if request.data:
+            project_ids = request.get_json()
+        else:
+            project_ids = None
+
         args = find_top_n_parser.parse_args()
 
         if args["jiraUrl"] is None:
-            return JIRA_URL_MISSING
+            return JIRA_URL_MISSING, 400
 
         appendix = "rest/api/2/search?jql=project={p_id}&maxResults=9999999"
 
@@ -143,7 +116,7 @@ class FindTopNUsersResource(Resource):
             res = requests.get(args["jiraUrl"] + appendix.format(p_id=p_id))
 
             if res.status_code != 200:
-                return JIRA_NOT_AVAILABLE
+                return JIRA_NOT_AVAILABLE, 500
             else:
                 res = res.json()
 
@@ -170,34 +143,53 @@ class FindTopNUsersResource(Resource):
         return topn
 
     def put(self):
-        return PUT_NOT_SUPPORTED
+        return PUT_NOT_SUPPORTED, 405
 
 
 class TopMProjectsMinNIssues(Resource):
 
     def get(self):
-        return GET_NOT_SUPPORTED
+        return GET_NOT_SUPPORTED, 405
 
     def post(self):
-        users = request.json
+        if request.data:
+            users = request.get_json()
+        else:
+            users = None
+
         args = project_parser.parse_args()
-        if args["jiraUrl"] is None:
-            return JIRA_URL_MISSING
+
+        if "jiraUrl" not in request.args:
+            return JIRA_URL_MISSING, 400
+
+        if users is None:
+            return USER_INFO_REQUIRED, 400
+
+        if len(users) == 0:
+            return USER_NOT_FOUND, 500
 
         appendix = "rest/api/2/search?jql=assignee={assignee}&maxResults=9999999"
 
         projects = {}
 
         for user in users:
-            res = requests.get(args["jiraUrl"] + appendix.format(assignee=user))
-            if res.status_code != 200:
-                return JIRA_NOT_AVAILABLE
-            else:
-                issues = res.json()["issues"]
 
-            # add an exception
-            if issues is None:
-                return {}, 500
+            try:
+                res = requests.get(args["jiraUrl"] + appendix.format(assignee=user))
+                if res.status_code != 200:
+                    return JIRA_NOT_AVAILABLE, 500
+
+                issues = res.json()["issues"]
+            except requests.exceptions.MissingSchema:
+                return JIRA_NOT_AVAILABLE, 500
+
+            minn = args["minn"]
+            if args["minn"] is None:
+                minn = 5
+
+            topm = args["topm"]
+            if args["topm"] is None:
+                topm = 10
 
             for iss in issues:
                 if iss["fields"]["project"]:
@@ -212,12 +204,12 @@ class TopMProjectsMinNIssues(Resource):
                             "issueCount": 1
                         }
         all_projects = list(projects.values())
-        topm_projects = sorted(all_projects, key=lambda x: x["issueCount"], reverse=True)[:args["topm"]]
+        topm_projects = sorted(all_projects, key=lambda x: x["issueCount"], reverse=True)[:topm]
 
         to_ret = list()
 
         for i in range(len(topm_projects)):
-            if topm_projects[i]["issueCount"] >= args["minn"]:
+            if topm_projects[i]["issueCount"] >= minn:
                 to_ret.append(topm_projects[i])
             else:
                 break
@@ -225,7 +217,7 @@ class TopMProjectsMinNIssues(Resource):
         return to_ret
     
     def put(self):
-        return PUT_NOT_SUPPORTED
+        return PUT_NOT_SUPPORTED, 405
 
 
 api.add_resource(EchoResource, "/echo/<text>")
