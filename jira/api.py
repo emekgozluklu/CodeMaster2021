@@ -150,7 +150,7 @@ class FindTopNUsersResource(Resource):
 
             for iss in issues:
                 if iss["fields"]["assignee"]:
-                    name  = iss["fields"]["assignee"]["name"]  # extract name form issue
+                    name = iss["fields"]["assignee"]["name"]  # extract name form issue
                     # find name and inc value
                     if name in names.keys():
                         names[name]["issueCount"] += 1
@@ -171,7 +171,7 @@ class FindTopNUsersResource(Resource):
     def put(self, text):
         return PUT_NOT_SUPPORTED
 
-"""
+
 class TopMProjectsMinNIssues(Resource):
 
     def post(self):
@@ -180,18 +180,48 @@ class TopMProjectsMinNIssues(Resource):
         if args["jiraUrl"] is None:
             return JIRA_URL_MISSING
 
-        appendix = "rest/api/2/search?jql=project={p_id}&maxResults=9999999"
+        appendix = "rest/api/2/search?jql=assignee={assignee}&maxResults=9999999"
 
-        names = {}
-        return {}, 200
+        projects = {}
+
+        for user in users:
+            res = requests.get(args["jiraUrl"] + appendix.format(assignee=user))
+            if res.status_code != 200:
+                return JIRA_NOT_AVAILABLE
+            else:
+                issues = res.json()["issues"]
+
+            for iss in issues:
+                if iss["fields"]["project"]:
+                    key = iss["fields"]["project"]["key"]
+                    if key in projects.keys():
+                        projects[key]["issueCount"] += 1
+                    else:
+                        projects[key] = {
+                            "id": iss["fields"]["project"]["id"],
+                            "key": iss["fields"]["project"]["key"],
+                            "name": iss["fields"]["project"]["name"],
+                            "issueCount": 1
+                        }
+        all_projects = list(projects.values())
+        topm_projects = sorted(all_projects, key=lambda x: x["issueCount"], reverse=True)[:args["topm"]]
+
+        to_ret = list()
+
+        for i in range(len(topm_projects)):
+            if topm_projects[i]["issueCount"] >= args["minn"]:
+                to_ret.append(topm_projects[i])
+            else:
+                break
+
+        return to_ret
     
     def put(self, text):
         return PUT_NOT_SUPPORTED
-"""
+
 
 api.add_resource(EchoResource, "/echo/<text>")
 api.add_resource(IssueTypesResource, "/issuetypes")
 api.add_resource(SubtaskTypeResource, "/issues/subtasks")
 api.add_resource(FindTopNUsersResource, "/users/find-top-n-users")
-#api.add_resource(TopMProjectsMinNIssues, "/projects/find-min-n-issues")
-
+api.add_resource(TopMProjectsMinNIssues, "/projects/find-min-n-issues")
