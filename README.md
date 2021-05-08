@@ -2,4 +2,4 @@
 - source venv/bin/activate
 - export FLASK_APP=jira
 - export FLASK_ENV=development
-- flask run -p=8080
+- flask run --port=8080
