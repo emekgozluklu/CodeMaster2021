@@ -11,6 +11,8 @@ issue_type_parser.add_argument("jiraUrl", type=str)
 
 subtask_type_parser = reqparse.RequestParser()
 subtask_type_parser.add_argument("jiraUrl", type=str)
+subtask_type_parser.add_argument("projectId", type=str)
+
 
 JIRA_ENDPOINT = "codemaster.obss.io/jira/"
 
@@ -60,24 +62,19 @@ class IssueTypesResource(Resource):
 
 class SubtaskTypeResource(Resource):
     def get(self):
+
         args = subtask_type_parser.parse_args()
-        query = args["jiraUrl"] + "rest/api/2/issuetype"
+        try:
+            query = args["jiraUrl"] + "rest/api/2/issuetype"
+            p_id = args["projectId"] + "rest/api/2/issuetype"
+        except KeyError:
+            return JIRA_URL_MISSING
 
-        res = requests.get(query).json()
-
-        to_return = list()
-        for i in res:
-            to_return.append({
-                "id": i["id"],
-                "description": i["description"],
-                "name": i["name"],
-                "subtask": i["subtask"]
-            })
-
-        return to_return
-
+    def put(self):
+        return PUT_NOT_SUPPORTED
 
 
 api.add_resource(EchoResource, "/echo/<text>")
 api.add_resource(IssueTypesResource, "/issuetypes")
 api.add_resource(SubtaskTypeResource, "/subtasks")
+
